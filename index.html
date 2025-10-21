@@ -25,63 +25,6 @@
             padding-bottom: 10px;
         }
         
-        /* Password Gate Styles */
-        #passwordGate {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .password-box {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .password-box h2 {
-            margin-top: 0;
-            color: #333;
-            font-size: 24px;
-        }
-        .password-box input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
-            margin: 20px 0;
-            box-sizing: border-box;
-        }
-        .password-box input[type="password"]:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        .password-box button {
-            width: 100%;
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-        }
-        .password-box button:hover {
-            background: #0056b3;
-        }
-        .password-error {
-            color: #dc3545;
-            margin-top: 10px;
-            display: none;
-        }
-        #mainContent {
-            display: none;
-        }
         
         .date-selector {
             background: #e3f2fd;
@@ -252,19 +195,6 @@
     </style>
 </head>
 <body>
-    <!-- Password Gate -->
-    <div id="passwordGate">
-        <div class="password-box">
-            <h2>🔒 Protected Dashboard</h2>
-            <p>Please enter the password to access the Sports Volume Report</p>
-            <input type="password" id="passwordInput" placeholder="Enter password" autofocus>
-            <button onclick="checkPassword()">Access Dashboard</button>
-            <div class="password-error" id="passwordError">Incorrect password. Please try again.</div>
-        </div>
-    </div>
-
-    <!-- Main Content (hidden until password is correct) -->
-    <div id="mainContent">
     <div class="container">
         <h1>Sports Volume Executive Report</h1>
         
