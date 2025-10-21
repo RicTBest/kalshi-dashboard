@@ -59,22 +59,3 @@ export default async function handler(req, res) {
     });
   }
 }
-```
-
-## ✅ Check Your Vercel Environment Variables
-
-1. Go to **Vercel Dashboard** → Your Project → **Settings** → **Environment Variables**
-2. Make sure these are set:
-   - `SUPABASE_URL` = `https://xxxxx.supabase.co`
-   - `SUPABASE_ANON_KEY` = `eyJhbGc...` (your anon/public key)
-
-3. **Redeploy** after adding environment variables:
-   - Go to **Deployments** tab
-   - Click the **⋯** menu on latest deployment
-   - Click **Redeploy**
-
-## 🧪 Test the API Directly
-
-Visit this URL in your browser (replace with your actual Vercel URL):
-```
-https://kalshi-sports-dashboard.vercel.app/api/volumes?start_date=2025-08-01&end_date=2025-08-10
