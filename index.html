@@ -407,7 +407,7 @@
             let sums = {
                 total: 0, sports: 0,
                 nfl: 0, mlb: 0, nba: 0, wnba: 0, nhl: 0,
-                soccer: 0, cfb: 0, golf: 0, motorsport: 0,
+                soccer: 0, ncaaf: 0, golf: 0, motorsport: 0,
                 ncaam: 0, ncaaw: 0, tennis: 0
             };
 
@@ -420,7 +420,7 @@
                 sums.wnba += d.wnba_volume || 0;
                 sums.nhl += d.nhl_volume || 0;
                 sums.soccer += d.soccer_volume || 0;
-                sums.cfb += d.ncaaf_volume || 0;  // Just ncaaf, don't double-count
+                sums.ncaaf += d.ncaaf_volume || 0;
                 sums.golf += d.golf_volume || 0;
                 sums.motorsport += d.motorsport_volume || 0;
                 sums.ncaam += d.ncaam_volume || 0;
@@ -441,10 +441,10 @@
             document.getElementById('sportsVolume').textContent = (sums.sports / 1e9).toFixed(2) + 'B';
             document.getElementById('sportsPercent').textContent = sportsPercent.toFixed(2) + '%';
 
-            // Create table
+            // Create table - display ncaaf as "College Football"
             const sports = [
                 { name: 'NFL', value: sums.nfl },
-                { name: 'College Football', value: sums.cfb },
+                { name: 'College Football', value: sums.ncaaf },
                 { name: 'MLB', value: sums.mlb },
                 { name: 'Golf', value: sums.golf },
                 { name: 'Soccer', value: sums.soccer },
@@ -464,7 +464,15 @@
             sports.forEach(sport => {
                 const row = tbody.insertRow();
                 row.insertCell(0).textContent = sport.name;
-                row.insertCell(1).textContent = (sport.value / 1e6).toFixed(1) + 'M';
+                
+                // Format volume: show in B if >= 1 billion, otherwise M
+                const volumeCell = row.insertCell(1);
+                if (sport.value >= 1e9) {
+                    volumeCell.textContent = (sport.value / 1e9).toFixed(2) + 'B';
+                } else {
+                    volumeCell.textContent = (sport.value / 1e6).toFixed(1) + 'M';
+                }
+                
                 row.insertCell(2).textContent = (sport.value / sums.sports * 100).toFixed(2) + '%';
             });
 
@@ -648,14 +656,14 @@
 
                 if (!aggregated[key]) {
                     aggregated[key] = { 
-                        nfl: 0, mlb: 0, cfb: 0, golf: 0, soccer: 0, 
+                        nfl: 0, mlb: 0, ncaaf: 0, golf: 0, soccer: 0, 
                         nba: 0, wnba: 0, nhl: 0, ncaam: 0, ncaaw: 0, motorsport: 0, tennis: 0
                     };
                 }
                 
                 aggregated[key].nfl += d.nfl_volume || 0;
                 aggregated[key].mlb += d.mlb_volume || 0;
-                aggregated[key].cfb += d.ncaaf_volume || 0;  // Just ncaaf
+                aggregated[key].ncaaf += d.ncaaf_volume || 0;
                 aggregated[key].golf += d.golf_volume || 0;
                 aggregated[key].soccer += d.soccer_volume || 0;
                 aggregated[key].nba += d.nba_volume || 0;
@@ -675,14 +683,14 @@
             });
 
             const sums = {
-                nfl: 0, mlb: 0, cfb: 0, golf: 0, soccer: 0,
+                nfl: 0, mlb: 0, ncaaf: 0, golf: 0, soccer: 0,
                 nba: 0, wnba: 0, nhl: 0, ncaam: 0, ncaaw: 0, motorsport: 0, tennis: 0
             };
 
             currentData.forEach(d => {
                 sums.nfl += d.nfl_volume || 0;
                 sums.mlb += d.mlb_volume || 0;
-                sums.cfb += d.ncaaf_volume || 0;  // Just ncaaf
+                sums.ncaaf += d.ncaaf_volume || 0;
                 sums.golf += d.golf_volume || 0;
                 sums.soccer += d.soccer_volume || 0;
                 sums.nba += d.nba_volume || 0;
@@ -696,7 +704,7 @@
 
             const datasets = [];
             if (sums.nfl > 0) datasets.push({ label: 'NFL', data: periods.map(p => aggregated[p].nfl / 1e6), backgroundColor: sportColors['NFL'] });
-            if (sums.cfb > 0) datasets.push({ label: 'College Football', data: periods.map(p => aggregated[p].cfb / 1e6), backgroundColor: sportColors['College Football'] });
+            if (sums.ncaaf > 0) datasets.push({ label: 'College Football', data: periods.map(p => aggregated[p].ncaaf / 1e6), backgroundColor: sportColors['College Football'] });
             if (sums.mlb > 0) datasets.push({ label: 'MLB', data: periods.map(p => aggregated[p].mlb / 1e6), backgroundColor: sportColors['MLB'] });
             if (sums.golf > 0) datasets.push({ label: 'Golf', data: periods.map(p => aggregated[p].golf / 1e6), backgroundColor: sportColors['Golf'] });
             if (sums.soccer > 0) datasets.push({ label: 'Soccer', data: periods.map(p => aggregated[p].soccer / 1e6), backgroundColor: sportColors['Soccer'] });
