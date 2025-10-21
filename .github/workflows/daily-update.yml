@@ -1,0 +1,73 @@
+name: Daily Kalshi Volume Update
+
+on:
+  schedule:
+    # Run at 5:15 AM UTC = 12:15 AM EST / 1:15 AM EDT
+    - cron: '15 5 * * *'
+  
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: 'Number of days to update (default: 7)'
+        required: false
+        default: '7'
+
+jobs:
+  update-volumes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests cryptography supabase
+      
+      - name: Run daily update
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TIMEZONE: 'America/New_York'
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
+        run: |
+          echo "Starting daily update..."
+          python kalshi_to_supabase.py
+          echo "Update complete!"
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Daily update failed!"
+          echo "Check the logs above for details"
+```
+
+## 🔐 Step 2: Add GitHub Secrets
+
+1. Go to your GitHub repository
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Add these 4 secrets:
+
+### **Secret 1: KALSHI_API_KEY_ID**
+- Name: `KALSHI_API_KEY_ID`
+- Value: `87dfdd60-dce5-473d-a4d8-285ca56550b8`
+
+### **Secret 2: KALSHI_PRIVATE_KEY**
+- Name: `KALSHI_PRIVATE_KEY`
+- Value: Your **full PEM private key** including the BEGIN/END lines:
+```
+-----BEGIN PRIVATE KEY-----
+MIIEpAIBAAKCAQEAtmuP1/6tWgzp03P3hUhv3ffrpO4r9vNB63OfONdxxxhyZtiE
+[... all lines of your key ...]
+-----END PRIVATE KEY-----
