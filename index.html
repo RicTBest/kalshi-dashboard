@@ -6,9 +6,13 @@
     <title>Sports Volume Executive Report</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
             background: #f5f5f5;
         }
         .container {
@@ -19,48 +23,70 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #007bff;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
         h1 {
             color: #333;
-            border-bottom: 3px solid #007bff;
-            padding-bottom: 10px;
+            margin: 0;
+            font-size: 1.8em;
         }
-        
-        
-        .date-selector {
+        .date-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             background: #e3f2fd;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border: 2px dashed #007bff;
+            padding: 10px 15px;
+            border-radius: 6px;
         }
-        .date-selector label {
-            display: inline-block;
-            margin-right: 15px;
-            font-weight: 600;
-        }
-        .date-selector input[type="date"] {
+        .date-controls input[type="date"] {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            margin-right: 15px;
+            font-size: 14px;
         }
-        .date-selector button {
+        .date-controls span {
+            color: #666;
+            font-weight: 500;
+        }
+        .date-controls button {
             background: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 20px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
         }
-        .date-selector button:hover {
+        .date-controls button:hover {
             background: #0056b3;
         }
-        .date-selector button:disabled {
+        .date-controls button:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-        #report {
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            display: none;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
             display: none;
         }
         .metrics {
@@ -116,19 +142,6 @@
         }
         tr:hover {
             background: #f5f5f5;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-            font-size: 1.2em;
         }
         .sport-selector {
             display: flex;
@@ -192,24 +205,35 @@
         .time-period-selector input[type="radio"] {
             margin: 0;
         }
+        @media (max-width: 768px) {
+            .header-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .date-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Sports Volume Executive Report</h1>
-        
-        <div class="date-selector">
-            <h3>Select Date Range</h3>
-            <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" value="2025-08-01" min="2025-08-01">
-            
-            <label for="endDate">End Date:</label>
-            <input type="date" id="endDate" value="2025-10-19" min="2025-08-01">
-            
-            <button onclick="loadReport()" id="loadBtn">Load Report</button>
-            <div id="errorMessage" class="error" style="display: none;"></div>
-            <div id="loadingMessage" class="loading" style="display: none;">Loading data...</div>
+        <div class="header-bar">
+            <h1>Sports Volume Executive Report</h1>
+            <div class="date-controls">
+                <input type="date" id="startDate" value="2025-08-01" min="2025-08-01">
+                <span>to</span>
+                <input type="date" id="endDate" value="2025-10-20" min="2025-08-01">
+                <button onclick="loadReport()" id="loadBtn">Update</button>
+            </div>
         </div>
+        
+        <div id="errorMessage" class="error"></div>
+        <div id="loadingMessage" class="loading">Loading data...</div>
 
         <div id="report">
             <p><strong>Period:</strong> <span id="dateRange"></span></p>
@@ -238,93 +262,7 @@
                         <th>% of Sports Volume</th>
                     </tr>
                 </thead>
-                <tbody id="tableBody">
-                </tbody>
-            </table>
-
-            <div class="chart-container">
-                <div class="chart-title">Sport Distribution</div>
-                <canvas id="pieChart"></canvas>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-title">Daily Total Volume Trend</div>
-                <canvas id="dailyChart"></canvas>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-title">Major Sports Trends Over Time</div>
-                <div class="sport-selector" id="sportSelector"></div>
-                <canvas id="trendsChart"></canvas>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-title">Volume by Sport</div>
-                <div class="time-period-selector">
-                    <strong>View by:</strong>
-                    <label>
-                        <input type="radio" name="timePeriod" value="day" onchange="updateMonthlyChart()">
-                        <span>Day</span>
-                    </label>
-                    <label>
-                        <input type="radio" name="timePeriod" value="week" onchange="updateMonthlyChart()">
-                        <span>Week</span>
-                    </label>
-                    <label>
-                        <input type="radio" name="timePeriod" value="month" checked onchange="updateMonthlyChart()">
-                        <span>Month</span>
-                    </label>
-                </div>
-                <canvas id="monthlyChart"></canvas>
-            </div>
-        </div>
-    </div>
-    </div>
-    <div class="container">
-        <h1>Sports Volume Executive Report</h1>
-        
-        <div class="date-selector">
-            <h3>Select Date Range</h3>
-            <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" value="2025-08-01" min="2025-08-01">
-            
-            <label for="endDate">End Date:</label>
-            <input type="date" id="endDate" value="2025-10-19" min="2025-08-01">
-            
-            <button onclick="loadReport()" id="loadBtn">Load Report</button>
-            <div id="errorMessage" class="error" style="display: none;"></div>
-            <div id="loadingMessage" class="loading" style="display: none;">Loading data...</div>
-        </div>
-
-        <div id="report">
-            <p><strong>Period:</strong> <span id="dateRange"></span></p>
-            
-            <div class="metrics">
-                <div class="metric-card">
-                    <div class="metric-value" id="totalVolume">-</div>
-                    <div class="metric-label">Total Volume</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value" id="sportsVolume">-</div>
-                    <div class="metric-label">Sports Volume</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value" id="sportsPercent">-</div>
-                    <div class="metric-label">Sports % of Total</div>
-                </div>
-            </div>
-
-            <h2>Sport Breakdown (% of Sports Volume)</h2>
-            <table id="sportTable">
-                <thead>
-                    <tr>
-                        <th>Sport</th>
-                        <th>Total Volume</th>
-                        <th>% of Sports Volume</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                </tbody>
+                <tbody id="tableBody"></tbody>
             </table>
 
             <div class="chart-container">
@@ -366,47 +304,6 @@
     </div>
 
     <script>
-        // Password Protection
-        const CORRECT_PASSWORD = "biome";
-        
-        function checkPassword() {
-            const input = document.getElementById('passwordInput').value;
-            const errorDiv = document.getElementById('passwordError');
-            
-            if (input === CORRECT_PASSWORD) {
-                // Store auth in sessionStorage (persists during session only)
-                sessionStorage.setItem('authenticated', 'true');
-                showDashboard();
-            } else {
-                errorDiv.style.display = 'block';
-                document.getElementById('passwordInput').value = '';
-                document.getElementById('passwordInput').focus();
-            }
-        }
-        
-        function showDashboard() {
-            document.getElementById('passwordGate').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
-            // Auto-load report after authentication
-            setTimeout(() => loadReport(), 100);
-        }
-        
-        // Check if already authenticated on page load
-        window.addEventListener('DOMContentLoaded', () => {
-            if (sessionStorage.getItem('authenticated') === 'true') {
-                showDashboard();
-            }
-        });
-        
-        // Allow Enter key to submit password
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('passwordInput')?.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    checkPassword();
-                }
-            });
-        });
-        
         let charts = {};
         let currentData = null;
         let allSportData = {};
@@ -430,13 +327,11 @@
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         document.getElementById('endDate').max = yesterday.toISOString().split('T')[0];
-        document.getElementById('endDate').value = yesterday.toISOString().split('T')[0];
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
-            document.getElementById('report').style.display = 'none';
             document.getElementById('loadingMessage').style.display = 'none';
         }
 
@@ -457,13 +352,13 @@
             document.getElementById('errorMessage').style.display = 'none';
             document.getElementById('loadingMessage').style.display = 'block';
             document.getElementById('loadBtn').disabled = true;
-            document.getElementById('report').style.display = 'none';
 
             try {
                 const response = await fetch(`/api/volumes?start_date=${startDate}&end_date=${endDate}`);
                 
                 if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `API error: ${response.status}`);
                 }
 
                 const data = await response.json();
@@ -477,24 +372,26 @@
                     date: row.date,
                     total_volume: row.total_volume,
                     sports_volume: row.sports_volume,
-                    nfl_volume: row.nfl_volume,
-                    cfb_volume: row.ncaaf_volume,  // Map ncaaf to cfb
-                    mlb_volume: row.mlb_volume,
-                    nba_volume: row.nba_volume,
-                    wnba_volume: row.wnba_volume,
-                    nhl_volume: row.nhl_volume,
-                    soccer_volume: row.soccer_volume,
-                    golf_volume: row.golf_volume,
-                    motorsport_volume: row.motorsport_volume,
-                    tennis_volume: row.tennis_volume,
-                    ncaam_volume: row.ncaam_volume,
-                    ncaaw_volume: row.ncaaw_volume
+                    nfl_volume: row.nfl_volume || 0,
+                    cfb_volume: row.ncaaf_volume || 0,
+                    ncaaf_volume: row.ncaaf_volume || 0,
+                    mlb_volume: row.mlb_volume || 0,
+                    nba_volume: row.nba_volume || 0,
+                    wnba_volume: row.wnba_volume || 0,
+                    nhl_volume: row.nhl_volume || 0,
+                    soccer_volume: row.soccer_volume || 0,
+                    golf_volume: row.golf_volume || 0,
+                    motorsport_volume: row.motorsport_volume || 0,
+                    tennis_volume: row.tennis_volume || 0,
+                    ncaam_volume: row.ncaam_volume || 0,
+                    ncaaw_volume: row.ncaaw_volume || 0
                 }));
 
                 document.getElementById('loadingMessage').style.display = 'none';
                 generateReport(transformedData);
             } catch (error) {
                 showError('Error loading data: ' + error.message);
+                console.error('Load error:', error);
             } finally {
                 document.getElementById('loadBtn').disabled = false;
             }
@@ -532,7 +429,7 @@
                 sums.tennis += d.tennis_volume || 0;
             });
 
-            const sportsPercent = (sums.sports / sums.total * 100);
+            const sportsPercent = (sums.sports / sums.total * 100) || 0;
 
             // Update date range
             const firstDate = data[0].date;
@@ -607,13 +504,15 @@
                         label: 'Total Volume',
                         data: data.map(d => d.total_volume / 1e6),
                         borderColor: '#007bff',
-                        fill: false,
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        fill: true,
                         tension: 0.1
                     }, {
                         label: 'Sports Volume',
                         data: data.map(d => d.sports_volume / 1e6),
                         borderColor: '#28a745',
-                        fill: false,
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        fill: true,
                         tension: 0.1
                     }]
                 },
@@ -624,7 +523,9 @@
                             beginAtZero: true,
                             title: { display: true, text: 'Volume (Millions)' }
                         },
-                        x: { title: { display: true, text: 'Date' } }
+                        x: { 
+                            title: { display: true, text: 'Date' }
+                        }
                     }
                 }
             });
@@ -724,8 +625,6 @@
             });
 
             updateMonthlyChart();
-
-            document.getElementById('report').style.display = 'block';
         }
 
         function getWeekNumber(date) {
@@ -844,6 +743,11 @@
             charts.trends.data.datasets = datasets;
             charts.trends.update();
         }
+
+        // Auto-load report on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadReport();
+        });
     </script>
 </body>
 </html>
