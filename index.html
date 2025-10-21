@@ -349,8 +349,134 @@
             </div>
         </div>
     </div>
+    </div>
+    <div class="container">
+        <h1>Sports Volume Executive Report</h1>
+        
+        <div class="date-selector">
+            <h3>Select Date Range</h3>
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" value="2025-08-01" min="2025-08-01">
+            
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" value="2025-10-19" min="2025-08-01">
+            
+            <button onclick="loadReport()" id="loadBtn">Load Report</button>
+            <div id="errorMessage" class="error" style="display: none;"></div>
+            <div id="loadingMessage" class="loading" style="display: none;">Loading data...</div>
+        </div>
+
+        <div id="report">
+            <p><strong>Period:</strong> <span id="dateRange"></span></p>
+            
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value" id="totalVolume">-</div>
+                    <div class="metric-label">Total Volume</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="sportsVolume">-</div>
+                    <div class="metric-label">Sports Volume</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="sportsPercent">-</div>
+                    <div class="metric-label">Sports % of Total</div>
+                </div>
+            </div>
+
+            <h2>Sport Breakdown (% of Sports Volume)</h2>
+            <table id="sportTable">
+                <thead>
+                    <tr>
+                        <th>Sport</th>
+                        <th>Total Volume</th>
+                        <th>% of Sports Volume</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+
+            <div class="chart-container">
+                <div class="chart-title">Sport Distribution</div>
+                <canvas id="pieChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Daily Total Volume Trend</div>
+                <canvas id="dailyChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Major Sports Trends Over Time</div>
+                <div class="sport-selector" id="sportSelector"></div>
+                <canvas id="trendsChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Volume by Sport</div>
+                <div class="time-period-selector">
+                    <strong>View by:</strong>
+                    <label>
+                        <input type="radio" name="timePeriod" value="day" onchange="updateMonthlyChart()">
+                        <span>Day</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="timePeriod" value="week" onchange="updateMonthlyChart()">
+                        <span>Week</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="timePeriod" value="month" checked onchange="updateMonthlyChart()">
+                        <span>Month</span>
+                    </label>
+                </div>
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
 
     <script>
+        // Password Protection
+        const CORRECT_PASSWORD = "biome";
+        
+        function checkPassword() {
+            const input = document.getElementById('passwordInput').value;
+            const errorDiv = document.getElementById('passwordError');
+            
+            if (input === CORRECT_PASSWORD) {
+                // Store auth in sessionStorage (persists during session only)
+                sessionStorage.setItem('authenticated', 'true');
+                showDashboard();
+            } else {
+                errorDiv.style.display = 'block';
+                document.getElementById('passwordInput').value = '';
+                document.getElementById('passwordInput').focus();
+            }
+        }
+        
+        function showDashboard() {
+            document.getElementById('passwordGate').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            // Auto-load report after authentication
+            setTimeout(() => loadReport(), 100);
+        }
+        
+        // Check if already authenticated on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('authenticated') === 'true') {
+                showDashboard();
+            }
+        });
+        
+        // Allow Enter key to submit password
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('passwordInput')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    checkPassword();
+                }
+            });
+        });
+        
         let charts = {};
         let currentData = null;
         let allSportData = {};
@@ -788,11 +914,6 @@
             charts.trends.data.datasets = datasets;
             charts.trends.update();
         }
-
-        // Load report on page load with default dates
-        window.addEventListener('load', () => {
-            loadReport();
-        });
     </script>
 </body>
 </html>
