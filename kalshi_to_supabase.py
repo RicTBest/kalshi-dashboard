@@ -33,20 +33,12 @@ CORP_CA_PATH = os.getenv(“CA_BUNDLE_PATH”)
 TIMEZONE = os.getenv(“TIMEZONE”, “America/New_York”)
 LOOKBACK_DAYS = int(os.getenv(“LOOKBACK_DAYS”, “3”))
 
-# Conservative batch sizes to prevent rate limiting
-
-TICKER_BATCH = 3   # Very small batches to be safe
-EVENT_BATCH = 3    # Very small batches to be safe
-
 # Rate limiting delays (seconds)
 
-REQUEST_DELAY = 2.0  # Wait 2 seconds between requests
+REQUEST_DELAY = 0.5  # Wait between individual requests
+BATCH_DELAY = 2.0    # Wait between batches
 RETRY_BASE_DELAY = 5.0  # Base delay for exponential backoff
-MAX_RETRIES = 3  # Reduce retries to fail faster on persistent issues
-
-# Maximum URL length before splitting batch
-
-MAX_URL_LENGTH = 1500  # More conservative limit
+MAX_RETRIES = 3
 
 # Regex patterns
 
@@ -54,6 +46,10 @@ SPORTS_REGEX = re.compile(
 r”(nfl|mlb|nba|wnba|nhl|laliga|f1|pga|bundesliga|ucl|epl|mls|ligue1|seriea|fifa|ncaa|nascar|atp|wta|mensingles|womensingles|kxmarmad|kxwmarmad|ncaab|ncaaf|ufc|boxing)”,
 re.IGNORECASE
 )
+
+# Pattern to identify tickers we should skip (MVP/MVE markets)
+
+SKIP_TICKER_REGEX = re.compile(r”^KXMVE”, re.IGNORECASE)
 
 NFL_REGEX = re.compile(r”nfl”, re.IGNORECASE)
 MLB_REGEX = re.compile(r”mlb”, re.IGNORECASE)
@@ -203,7 +199,7 @@ while True:
         _log(f"  ▸ page {page}: +{len(batch)} trades (total: {len(trades)})")
     
     # Small delay to be nice to the API
-    time.sleep(0.2)
+    time.sleep(0.1)
     
     if not cursor:
         break
@@ -215,18 +211,25 @@ return trades
 def _lookup_markets(tickers, session: requests.Session, key):
 “””
 Fetch market metadata for tickers one at a time to avoid URL length issues
-and rate limiting. This is slower but more reliable.
+and rate limiting. Skips KXMVE tickers to reduce load.
 “””
 path = “/markets”
 url = f”{API_HOST}{path}”
 out = {}
 
 ```
-total_tickers = len(tickers)
+# Filter out KXMVE tickers
+filtered_tickers = [t for t in tickers if not SKIP_TICKER_REGEX.match(t)]
+skipped_count = len(tickers) - len(filtered_tickers)
+
+if skipped_count > 0:
+    _log(f"Skipping {skipped_count} KXMVE tickers to reduce API load")
+
+total_tickers = len(filtered_tickers)
 _log(f"Fetching market metadata for {total_tickers} tickers (one at a time)...")
 
-for i, ticker in enumerate(list(tickers), start=1):
-    if i % 50 == 0:
+for i, ticker in enumerate(filtered_tickers, start=1):
+    if i % 100 == 0:
         _log(f"  ▸ Progress: {i}/{total_tickers} tickers processed...")
     
     headers = _kalshi_headers("GET", path, key)
@@ -245,7 +248,7 @@ for i, ticker in enumerate(list(tickers), start=1):
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 429:
             _log(f"  ⚠️  Rate limited on ticker {ticker}, waiting longer...")
-            time.sleep(10)  # Wait 10 seconds on rate limit
+            time.sleep(10)
             # Try one more time for this ticker
             try:
                 headers = _kalshi_headers("GET", path, key)
@@ -276,6 +279,7 @@ return out
 def _lookup_event_categories(event_tickers, session: requests.Session, key):
 “””
 Fetch event categories one at a time to avoid rate limiting.
+Skips KXMVE event tickers to reduce load.
 “””
 path = “/events”
 url = f”{API_HOST}{path}”
@@ -284,11 +288,18 @@ if not event_tickers:
 return out
 
 ```
-total_events = len(event_tickers)
+# Filter out KXMVE event tickers
+filtered_events = [e for e in event_tickers if not SKIP_TICKER_REGEX.match(e)]
+skipped_count = len(event_tickers) - len(filtered_events)
+
+if skipped_count > 0:
+    _log(f"Skipping {skipped_count} KXMVE event tickers to reduce API load")
+
+total_events = len(filtered_events)
 _log(f"Fetching event categories for {total_events} event_ticker(s) (one at a time)...")
 
-for i, event_ticker in enumerate(list(event_tickers), start=1):
-    if i % 20 == 0:
+for i, event_ticker in enumerate(filtered_events, start=1):
+    if i % 100 == 0:
         _log(f"  ▸ Progress: {i}/{total_events} events processed...")
     
     headers = _kalshi_headers("GET", path, key)
@@ -334,36 +345,46 @@ return out
 ```
 
 def classify_sport(ticker: str, category: str, event_ticker: str) -> str:
-for field in (ticker, category, event_ticker):
-if not field:
-continue
-if WNBA_REGEX.search(field):
-return “wnba”
-if NFL_REGEX.search(field):
-return “nfl”
-if MLB_REGEX.search(field):
-return “mlb”
-if NBA_REGEX.search(field):
-return “nba”
-if NHL_REGEX.search(field):
-return “nhl”
-if SOCCER_REGEX.search(field):
-return “soccer”
-if GOLF_REGEX.search(field):
-return “golf”
-if MOTORSPORT_REGEX.search(field):
-return “motorsport”
-if TENNIS_REGEX.search(field):
-return “tennis”
-if NCAAM_REGEX.search(field):
-return “ncaam”
-if NCAAW_REGEX.search(field):
-return “ncaaw”
-if NCAAF_REGEX.search(field):
-return “ncaaf”
-if COMBAT_REGEX.search(field):
-return “combat”
+“””
+Classify a ticker into a sport category.
+Returns empty string if not a sport or if it’s a KXMVE ticker (skipped).
+“””
+# Skip KXMVE tickers entirely
+if SKIP_TICKER_REGEX.match(ticker):
 return “”
+
+```
+for field in (ticker, category, event_ticker):
+    if not field:
+        continue
+    if WNBA_REGEX.search(field):
+        return "wnba"
+    if NFL_REGEX.search(field):
+        return "nfl"
+    if MLB_REGEX.search(field):
+        return "mlb"
+    if NBA_REGEX.search(field):
+        return "nba"
+    if NHL_REGEX.search(field):
+        return "nhl"
+    if SOCCER_REGEX.search(field):
+        return "soccer"
+    if GOLF_REGEX.search(field):
+        return "golf"
+    if MOTORSPORT_REGEX.search(field):
+        return "motorsport"
+    if TENNIS_REGEX.search(field):
+        return "tennis"
+    if NCAAM_REGEX.search(field):
+        return "ncaam"
+    if NCAAW_REGEX.search(field):
+        return "ncaaw"
+    if NCAAF_REGEX.search(field):
+        return "ncaaf"
+    if COMBAT_REGEX.search(field):
+        return "combat"
+return ""
+```
 
 def main():
 if not all([API_KEY_ID, PRIVATE_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY]):
