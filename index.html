@@ -461,8 +461,8 @@
             `${firstDate} - ${lastDate} (${data.length} days)`;
 
         // Update metrics - display exact values
-        document.getElementById('totalVolume').textContent = (sums.total / 1e9).toFixed(3) + 'B';
-        document.getElementById('sportsVolume').textContent = (sums.sports / 1e9).toFixed(3) + 'B';
+        document.getElementById('totalVolume').textContent = (sums.total / 1e9).toFixed(2) + 'B';
+        document.getElementById('sportsVolume').textContent = (sums.sports / 1e9).toFixed(2) + 'B';
         document.getElementById('sportsPercent').textContent = sportsPercent.toFixed(2) + '%';
 
         // Create table
@@ -786,3 +786,4 @@
 
 </body>
 </html>
+
