@@ -12,8 +12,8 @@ export function middleware(request) {
   const authHeader = request.headers.get('authorization');
   
   // Check for Basic Auth credentials
-  // Username: admin, Password: biome
-  const validAuth = 'Basic ' + Buffer.from('admin:biome').toString('base64');
+  // Username: sig, Password: biome
+  const validAuth = 'Basic ' + Buffer.from('sig:biome').toString('base64');
   
   // If no auth or invalid auth, prompt for credentials
   if (!authHeader || authHeader !== validAuth) {
