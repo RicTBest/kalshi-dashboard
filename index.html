@@ -367,13 +367,13 @@
                     throw new Error('No data available for the selected date range');
                 }
 
-                // Transform data to match expected format
+                // Transform data - ncaaf_volume is College Football
                 const transformedData = data.map(row => ({
                     date: row.date,
                     total_volume: row.total_volume,
                     sports_volume: row.sports_volume,
                     nfl_volume: row.nfl_volume || 0,
-                    cfb_volume: row.ncaaf_volume || 0,
+                    ncaaf_volume: row.ncaaf_volume || 0,
                     mlb_volume: row.mlb_volume || 0,
                     nba_volume: row.nba_volume || 0,
                     wnba_volume: row.wnba_volume || 0,
@@ -420,7 +420,7 @@
                 sums.wnba += d.wnba_volume || 0;
                 sums.nhl += d.nhl_volume || 0;
                 sums.soccer += d.soccer_volume || 0;
-                sums.cfb += d.ncaaf_volume || 0;
+                sums.cfb += d.ncaaf_volume || 0;  // Just ncaaf, don't double-count
                 sums.golf += d.golf_volume || 0;
                 sums.motorsport += d.motorsport_volume || 0;
                 sums.ncaam += d.ncaam_volume || 0;
@@ -532,7 +532,7 @@
             // Sport trends
             const allSports = [
                 { name: 'NFL', key: 'nfl_volume' },
-                { name: 'College Football', key: 'cfb_volume' },
+                { name: 'College Football', key: 'ncaaf_volume' },
                 { name: 'MLB', key: 'mlb_volume' },
                 { name: 'Golf', key: 'golf_volume' },
                 { name: 'Soccer', key: 'soccer_volume' },
@@ -546,12 +546,7 @@
             ];
 
             const sportTotals = allSports.map(sport => {
-                let total = 0;
-                if (sport.key === 'cfb_volume') {
-                    total = data.reduce((sum, d) => sum + (d.cfb_volume || 0) + (d.ncaaf_volume || 0), 0);
-                } else {
-                    total = data.reduce((sum, d) => sum + (d[sport.key] || 0), 0);
-                }
+                const total = data.reduce((sum, d) => sum + (d[sport.key] || 0), 0);
                 return { ...sport, total };
             }).filter(sport => sport.total > 0).sort((a, b) => b.total - a.total);
 
@@ -559,9 +554,7 @@
                 labels: data.map(d => d.date),
                 sports: sportTotals.map(sport => ({
                     name: sport.name,
-                    data: sport.key === 'cfb_volume' 
-                        ? data.map(d => ((d.cfb_volume || 0) + (d.ncaaf_volume || 0)) / 1e6)
-                        : data.map(d => (d[sport.key] || 0) / 1e6)
+                    data: data.map(d => (d[sport.key] || 0) / 1e6)
                 }))
             };
 
@@ -662,7 +655,7 @@
                 
                 aggregated[key].nfl += d.nfl_volume || 0;
                 aggregated[key].mlb += d.mlb_volume || 0;
-                aggregated[key].cfb += (d.cfb_volume || 0) + (d.ncaaf_volume || 0);
+                aggregated[key].cfb += d.ncaaf_volume || 0;  // Just ncaaf
                 aggregated[key].golf += d.golf_volume || 0;
                 aggregated[key].soccer += d.soccer_volume || 0;
                 aggregated[key].nba += d.nba_volume || 0;
@@ -689,7 +682,7 @@
             currentData.forEach(d => {
                 sums.nfl += d.nfl_volume || 0;
                 sums.mlb += d.mlb_volume || 0;
-                sums.cfb += (d.cfb_volume || 0) + (d.ncaaf_volume || 0);
+                sums.cfb += d.ncaaf_volume || 0;  // Just ncaaf
                 sums.golf += d.golf_volume || 0;
                 sums.soccer += d.soccer_volume || 0;
                 sums.nba += d.nba_volume || 0;
@@ -750,4 +743,3 @@
     </script>
 </body>
 </html>
-
