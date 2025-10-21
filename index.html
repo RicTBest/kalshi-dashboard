@@ -370,25 +370,33 @@
                 throw new Error('No data available for the selected date range');
             }
 
-            // Transform data - ensure all fields including combat_volume
-            const transformedData = data.map(row => ({
-                date: row.date,
-                total_volume: row.total_volume || 0,
-                sports_volume: row.sports_volume || 0,
-                nfl_volume: row.nfl_volume || 0,
-                ncaaf_volume: row.ncaaf_volume || 0,
-                mlb_volume: row.mlb_volume || 0,
-                nba_volume: row.nba_volume || 0,
-                wnba_volume: row.wnba_volume || 0,
-                nhl_volume: row.nhl_volume || 0,
-                soccer_volume: row.soccer_volume || 0,
-                golf_volume: row.golf_volume || 0,
-                motorsport_volume: row.motorsport_volume || 0,
-                tennis_volume: row.tennis_volume || 0,
-                ncaam_volume: row.ncaam_volume || 0,
-                ncaaw_volume: row.ncaaw_volume || 0,
-                combat_volume: row.combat_volume || 0
-            }));
+            console.log('Raw API data (first row):', data[0]);
+            console.log('Total rows:', data.length);
+
+            // Transform data - ensure all fields are properly converted to numbers
+            const transformedData = data.map(row => {
+                const transformed = {
+                    date: row.date,
+                    total_volume: Number(row.total_volume) || 0,
+                    sports_volume: Number(row.sports_volume) || 0,
+                    nfl_volume: Number(row.nfl_volume) || 0,
+                    ncaaf_volume: Number(row.ncaaf_volume) || 0,
+                    mlb_volume: Number(row.mlb_volume) || 0,
+                    nba_volume: Number(row.nba_volume) || 0,
+                    wnba_volume: Number(row.wnba_volume) || 0,
+                    nhl_volume: Number(row.nhl_volume) || 0,
+                    soccer_volume: Number(row.soccer_volume) || 0,
+                    golf_volume: Number(row.golf_volume) || 0,
+                    motorsport_volume: Number(row.motorsport_volume) || 0,
+                    tennis_volume: Number(row.tennis_volume) || 0,
+                    ncaam_volume: Number(row.ncaam_volume) || 0,
+                    ncaaw_volume: Number(row.ncaaw_volume) || 0,
+                    combat_volume: Number(row.combat_volume) || 0
+                };
+                return transformed;
+            });
+
+            console.log('Transformed data (first row):', transformedData[0]);
 
             document.getElementById('loadingMessage').style.display = 'none';
             generateReport(transformedData);
@@ -407,7 +415,7 @@
         Object.values(charts).forEach(chart => chart.destroy());
         charts = {};
 
-        // Calculate totals
+        // Calculate totals - using Number() to ensure proper numeric addition
         let sums = {
             total: 0, sports: 0,
             nfl: 0, mlb: 0, nba: 0, wnba: 0, nhl: 0,
@@ -416,24 +424,33 @@
         };
 
         data.forEach(d => {
-            sums.total += d.total_volume || 0;
-            sums.sports += d.sports_volume || 0;
-            sums.nfl += d.nfl_volume || 0;
-            sums.mlb += d.mlb_volume || 0;
-            sums.nba += d.nba_volume || 0;
-            sums.wnba += d.wnba_volume || 0;
-            sums.nhl += d.nhl_volume || 0;
-            sums.soccer += d.soccer_volume || 0;
-            sums.ncaaf += d.ncaaf_volume || 0;
-            sums.golf += d.golf_volume || 0;
-            sums.motorsport += d.motorsport_volume || 0;
-            sums.ncaam += d.ncaam_volume || 0;
-            sums.ncaaw += d.ncaaw_volume || 0;
-            sums.tennis += d.tennis_volume || 0;
-            sums.combat += d.combat_volume || 0;
+            sums.total += Number(d.total_volume) || 0;
+            sums.sports += Number(d.sports_volume) || 0;
+            sums.nfl += Number(d.nfl_volume) || 0;
+            sums.mlb += Number(d.mlb_volume) || 0;
+            sums.nba += Number(d.nba_volume) || 0;
+            sums.wnba += Number(d.wnba_volume) || 0;
+            sums.nhl += Number(d.nhl_volume) || 0;
+            sums.soccer += Number(d.soccer_volume) || 0;
+            sums.ncaaf += Number(d.ncaaf_volume) || 0;
+            sums.golf += Number(d.golf_volume) || 0;
+            sums.motorsport += Number(d.motorsport_volume) || 0;
+            sums.ncaam += Number(d.ncaam_volume) || 0;
+            sums.ncaaw += Number(d.ncaaw_volume) || 0;
+            sums.tennis += Number(d.tennis_volume) || 0;
+            sums.combat += Number(d.combat_volume) || 0;
         });
 
-        console.log('Sport sums:', sums);  // Debug output
+        console.log('Calculated sums:', sums);
+        
+        // Verify individual sport sums add up to sports total
+        const calculatedSportsTotal = sums.nfl + sums.mlb + sums.nba + sums.wnba + 
+                                     sums.nhl + sums.soccer + sums.ncaaf + sums.golf + 
+                                     sums.motorsport + sums.ncaam + sums.ncaaw + 
+                                     sums.tennis + sums.combat;
+        console.log('Sum of individual sports:', calculatedSportsTotal);
+        console.log('Sports volume from data:', sums.sports);
+        console.log('Difference:', Math.abs(calculatedSportsTotal - sums.sports));
 
         const sportsPercent = (sums.sports / sums.total * 100) || 0;
 
@@ -443,9 +460,9 @@
         document.getElementById('dateRange').textContent = 
             `${firstDate} - ${lastDate} (${data.length} days)`;
 
-        // Update metrics
-        document.getElementById('totalVolume').textContent = (sums.total / 1e9).toFixed(2) + 'B';
-        document.getElementById('sportsVolume').textContent = (sums.sports / 1e9).toFixed(2) + 'B';
+        // Update metrics - display exact values
+        document.getElementById('totalVolume').textContent = (sums.total / 1e9).toFixed(3) + 'B';
+        document.getElementById('sportsVolume').textContent = (sums.sports / 1e9).toFixed(3) + 'B';
         document.getElementById('sportsPercent').textContent = sportsPercent.toFixed(2) + '%';
 
         // Create table
@@ -467,7 +484,7 @@
         .filter(sport => sport.value > 0)
         .sort((a, b) => b.value - a.value);
 
-        console.log('Sports with volume:', sports);  // Debug output
+        console.log('Sports with volume:', sports.map(s => `${s.name}: ${s.value.toLocaleString()}`));
 
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
@@ -519,14 +536,14 @@
                 labels: data.map(d => d.date),
                 datasets: [{
                     label: 'Total Volume',
-                    data: data.map(d => d.total_volume / 1e6),
+                    data: data.map(d => Number(d.total_volume) / 1e6),
                     borderColor: '#007bff',
                     backgroundColor: 'rgba(0, 123, 255, 0.1)',
                     fill: true,
                     tension: 0.1
                 }, {
                     label: 'Sports Volume',
-                    data: data.map(d => d.sports_volume / 1e6),
+                    data: data.map(d => Number(d.sports_volume) / 1e6),
                     borderColor: '#28a745',
                     backgroundColor: 'rgba(40, 167, 69, 0.1)',
                     fill: true,
@@ -565,7 +582,7 @@
         ];
 
         const sportTotals = allSports.map(sport => {
-            const total = data.reduce((sum, d) => sum + (d[sport.key] || 0), 0);
+            const total = data.reduce((sum, d) => sum + (Number(d[sport.key]) || 0), 0);
             return { ...sport, total };
         }).filter(sport => sport.total > 0).sort((a, b) => b.total - a.total);
 
@@ -573,7 +590,7 @@
             labels: data.map(d => d.date),
             sports: sportTotals.map(sport => ({
                 name: sport.name,
-                data: data.map(d => (d[sport.key] || 0) / 1e6)
+                data: data.map(d => (Number(d[sport.key]) || 0) / 1e6)
             }))
         };
 
@@ -673,19 +690,19 @@
                 };
             }
             
-            aggregated[key].nfl += d.nfl_volume || 0;
-            aggregated[key].mlb += d.mlb_volume || 0;
-            aggregated[key].ncaaf += d.ncaaf_volume || 0;
-            aggregated[key].golf += d.golf_volume || 0;
-            aggregated[key].soccer += d.soccer_volume || 0;
-            aggregated[key].nba += d.nba_volume || 0;
-            aggregated[key].wnba += d.wnba_volume || 0;
-            aggregated[key].nhl += d.nhl_volume || 0;
-            aggregated[key].ncaam += d.ncaam_volume || 0;
-            aggregated[key].ncaaw += d.ncaaw_volume || 0;
-            aggregated[key].motorsport += d.motorsport_volume || 0;
-            aggregated[key].tennis += d.tennis_volume || 0;
-            aggregated[key].combat += d.combat_volume || 0;
+            aggregated[key].nfl += Number(d.nfl_volume) || 0;
+            aggregated[key].mlb += Number(d.mlb_volume) || 0;
+            aggregated[key].ncaaf += Number(d.ncaaf_volume) || 0;
+            aggregated[key].golf += Number(d.golf_volume) || 0;
+            aggregated[key].soccer += Number(d.soccer_volume) || 0;
+            aggregated[key].nba += Number(d.nba_volume) || 0;
+            aggregated[key].wnba += Number(d.wnba_volume) || 0;
+            aggregated[key].nhl += Number(d.nhl_volume) || 0;
+            aggregated[key].ncaam += Number(d.ncaam_volume) || 0;
+            aggregated[key].ncaaw += Number(d.ncaaw_volume) || 0;
+            aggregated[key].motorsport += Number(d.motorsport_volume) || 0;
+            aggregated[key].tennis += Number(d.tennis_volume) || 0;
+            aggregated[key].combat += Number(d.combat_volume) || 0;
         });
 
         const periods = Object.keys(aggregated).sort((a, b) => {
@@ -702,19 +719,19 @@
         };
 
         currentData.forEach(d => {
-            sums.nfl += d.nfl_volume || 0;
-            sums.mlb += d.mlb_volume || 0;
-            sums.ncaaf += d.ncaaf_volume || 0;
-            sums.golf += d.golf_volume || 0;
-            sums.soccer += d.soccer_volume || 0;
-            sums.nba += d.nba_volume || 0;
-            sums.wnba += d.wnba_volume || 0;
-            sums.nhl += d.nhl_volume || 0;
-            sums.ncaam += d.ncaam_volume || 0;
-            sums.ncaaw += d.ncaaw_volume || 0;
-            sums.motorsport += d.motorsport_volume || 0;
-            sums.tennis += d.tennis_volume || 0;
-            sums.combat += d.combat_volume || 0;
+            sums.nfl += Number(d.nfl_volume) || 0;
+            sums.mlb += Number(d.mlb_volume) || 0;
+            sums.ncaaf += Number(d.ncaaf_volume) || 0;
+            sums.golf += Number(d.golf_volume) || 0;
+            sums.soccer += Number(d.soccer_volume) || 0;
+            sums.nba += Number(d.nba_volume) || 0;
+            sums.wnba += Number(d.wnba_volume) || 0;
+            sums.nhl += Number(d.nhl_volume) || 0;
+            sums.ncaam += Number(d.ncaam_volume) || 0;
+            sums.ncaaw += Number(d.ncaaw_volume) || 0;
+            sums.motorsport += Number(d.motorsport_volume) || 0;
+            sums.tennis += Number(d.tennis_volume) || 0;
+            sums.combat += Number(d.combat_volume) || 0;
         });
 
         const datasets = [];
