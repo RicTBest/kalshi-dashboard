@@ -370,11 +370,11 @@
                 throw new Error('No data available for the selected date range');
             }
 
-            // Transform data
+            // Transform data - ensure all fields including combat_volume
             const transformedData = data.map(row => ({
                 date: row.date,
-                total_volume: row.total_volume,
-                sports_volume: row.sports_volume,
+                total_volume: row.total_volume || 0,
+                sports_volume: row.sports_volume || 0,
                 nfl_volume: row.nfl_volume || 0,
                 ncaaf_volume: row.ncaaf_volume || 0,
                 mlb_volume: row.mlb_volume || 0,
@@ -433,6 +433,8 @@
             sums.combat += d.combat_volume || 0;
         });
 
+        console.log('Sport sums:', sums);  // Debug output
+
         const sportsPercent = (sums.sports / sums.total * 100) || 0;
 
         // Update date range
@@ -464,6 +466,8 @@
         ]
         .filter(sport => sport.value > 0)
         .sort((a, b) => b.value - a.value);
+
+        console.log('Sports with volume:', sports);  // Debug output
 
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
