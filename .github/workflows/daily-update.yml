@@ -11,7 +11,7 @@ on:
       lookback_days:
         description: 'Number of days to update (default: 7)'
         required: false
-        default: '90'
+        default: '3'
 
 jobs:
   update-volumes:
