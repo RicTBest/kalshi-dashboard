@@ -374,7 +374,6 @@
                     sports_volume: row.sports_volume,
                     nfl_volume: row.nfl_volume || 0,
                     cfb_volume: row.ncaaf_volume || 0,
-                    ncaaf_volume: row.ncaaf_volume || 0,
                     mlb_volume: row.mlb_volume || 0,
                     nba_volume: row.nba_volume || 0,
                     wnba_volume: row.wnba_volume || 0,
@@ -421,7 +420,7 @@
                 sums.wnba += d.wnba_volume || 0;
                 sums.nhl += d.nhl_volume || 0;
                 sums.soccer += d.soccer_volume || 0;
-                sums.cfb += (d.cfb_volume || 0) + (d.ncaaf_volume || 0);
+                sums.cfb += d.ncaaf_volume || 0;
                 sums.golf += d.golf_volume || 0;
                 sums.motorsport += d.motorsport_volume || 0;
                 sums.ncaam += d.ncaam_volume || 0;
@@ -751,3 +750,4 @@
     </script>
 </body>
 </html>
+
