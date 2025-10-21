@@ -16,29 +16,32 @@ from cryptography.hazmat.primitives.serialization import (
 
 API_HOST = "https://api.elections.kalshi.com/trade-api/v2"
 API_KEY_ID = os.getenv("KALSHI_API_KEY_ID")
-PRIVATE_KEY = os.getenv("KALSHI_PRIVATE_KEY", "").encode()  # PEM format from env
-PRIVATE_KEY_PASSPHRASE = os.getenv("KALSHI_KEY_PASSPHRASE")  # if encrypted
+PRIVATE_KEY = os.getenv("KALSHI_PRIVATE_KEY", "").encode()
+PRIVATE_KEY_PASSPHRASE = os.getenv("KALSHI_KEY_PASSPHRASE")
 if PRIVATE_KEY_PASSPHRASE:
     PRIVATE_KEY_PASSPHRASE = PRIVATE_KEY_PASSPHRASE.encode()
 
-# Supabase credentials
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # service_role key for writes
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-# Proxy settings (optional)
 PROXIES = None
 proxy_http = os.getenv("HTTP_PROXY")
 if proxy_http:
     PROXIES = {"http": proxy_http, "https": proxy_http}
 
-CORP_CA_PATH = os.getenv("CA_BUNDLE_PATH")  # optional
-
+CORP_CA_PATH = os.getenv("CA_BUNDLE_PATH")
 TIMEZONE = os.getenv("TIMEZONE", "America/New_York")
+LOOKBACK_DAYS = int(os.getenv("LOOKBACK_DAYS", "7"))
 
-# For incremental updates: fetch only recent days
-LOOKBACK_DAYS = int(os.getenv("LOOKBACK_DAYS", "7"))  # Default: update last 7 days
+# Reduced batch sizes to prevent rate limiting
+TICKER_BATCH = 20  # Reduced from 50
+EVENT_BATCH = 20   # Reduced from 50
 
-# Regex patterns (same as before)
+# Rate limiting delays (seconds)
+REQUEST_DELAY = 1.0  # Wait 1 second between requests
+RETRY_BASE_DELAY = 2.0  # Base delay for exponential backoff
+
+# Regex patterns
 SPORTS_REGEX = re.compile(
     r"(nfl|mlb|nba|wnba|nhl|laliga|f1|pga|bundesliga|ucl|epl|mls|ligue1|seriea|fifa|ncaa|nascar|atp|wta|mensingles|womensingles|kxmarmad|kxwmarmad|ncaab|ncaaf)",
     re.IGNORECASE
@@ -58,9 +61,6 @@ NCAAW_REGEX = re.compile(r"(kxwmarmad|ncaaw)", re.IGNORECASE)
 NCAAF_REGEX = re.compile(r"ncaaf", re.IGNORECASE)
 
 SPORT_CATEGORIES = ["nfl", "mlb", "nba", "wnba", "nhl", "soccer", "golf", "motorsport", "tennis", "ncaam", "ncaaw", "ncaaf"]
-
-TICKER_BATCH = 50
-EVENT_BATCH = 50
 
 # =================== END CONFIG ====================
 
@@ -100,6 +100,32 @@ def _kalshi_headers(method: str, path: str, key):
         "KALSHI-ACCESS-TIMESTAMP": ts_ms,
         "KALSHI-ACCESS-SIGNATURE": base64.b64encode(sig).decode("ascii"),
     }
+
+
+def _api_request_with_retry(session, method, url, headers, params=None, max_retries=5):
+    """Make API request with exponential backoff retry on rate limit."""
+    for attempt in range(max_retries):
+        try:
+            r = session.request(method, url, headers=headers, params=params, timeout=60)
+            
+            if r.status_code == 429:  # Rate limited
+                wait_time = RETRY_BASE_DELAY * (2 ** attempt)  # 2s, 4s, 8s, 16s, 32s
+                _log(f"  ⚠️  Rate limited (429). Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+                time.sleep(wait_time)
+                continue
+            
+            r.raise_for_status()
+            return r
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                wait_time = RETRY_BASE_DELAY * (2 ** attempt)
+                _log(f"  ⚠️  Rate limited (429). Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+                time.sleep(wait_time)
+            else:
+                raise
+    
+    raise Exception("Max retries exceeded for API request")
 
 
 def _daterange_inclusive(start_d: date, end_d: date):
@@ -154,22 +180,30 @@ def _get_all_trades(min_ts: int, max_ts: int, session: requests.Session, key):
     trades = []
     page = 0
     _log(f"Fetching trades in UTC span [{min_ts}, {max_ts}) ...")
+    
     while True:
         params = {"limit": 1000, "min_ts": min_ts, "max_ts": max_ts}
         if cursor:
             params["cursor"] = cursor
+        
         headers = _kalshi_headers("GET", path, key)
-        r = session.get(url, headers=headers, params=params, timeout=60)
-        r.raise_for_status()
+        r = _api_request_with_retry(session, "GET", url, headers, params)
+        
         data = r.json()
         batch = data.get("trades", [])
         trades.extend(batch)
         cursor = data.get("cursor")
         page += 1
+        
         if page % 100 == 0:
             _log(f"  ▸ page {page}: +{len(batch)} trades (total: {len(trades)})")
+        
+        # Small delay to be nice to the API
+        time.sleep(0.1)
+        
         if not cursor:
             break
+    
     _log(f"Total trades fetched: {len(trades)}")
     return trades
 
@@ -179,18 +213,27 @@ def _lookup_markets(tickers, session: requests.Session, key):
     url = f"{API_HOST}{path}"
     out = {}
     batches = math.ceil(len(tickers) / TICKER_BATCH) if tickers else 0
-    _log(f"Fetching market metadata for {len(tickers)} tickers in {batches} batch(es)...")
+    _log(f"Fetching market metadata for {len(tickers)} tickers in {batches} batch(es) (batch size: {TICKER_BATCH})...")
+    
     for i, batch in enumerate(_chunks(list(tickers), TICKER_BATCH), start=1):
+        _log(f"  ▸ batch {i}/{batches}: {len(batch)} tickers")
+        
         headers = _kalshi_headers("GET", path, key)
-        r = session.get(url, headers=headers, params={"tickers": ",".join(batch)}, timeout=60)
-        r.raise_for_status()
+        r = _api_request_with_retry(session, "GET", url, headers, params={"tickers": ",".join(batch)})
+        
         markets = r.json().get("markets", [])
+        
         for m in markets:
             tkr = m.get("ticker")
             cat = (m.get("category") or "").strip()
             evt = (m.get("event_ticker") or m.get("eventTicker") or "").strip()
             if tkr:
                 out[tkr] = {"category": cat, "event_ticker": evt}
+        
+        # Rate limiting delay between batches
+        if i < batches:  # Don't sleep after last batch
+            time.sleep(REQUEST_DELAY)
+    
     return out
 
 
@@ -200,18 +243,28 @@ def _lookup_event_categories(event_tickers, session: requests.Session, key):
     out = {}
     if not event_tickers:
         return out
+    
     batches = math.ceil(len(event_tickers) / EVENT_BATCH)
-    _log(f"Fetching event categories for {len(event_tickers)} event_ticker(s)...")
+    _log(f"Fetching event categories for {len(event_tickers)} event_ticker(s) in {batches} batch(es)...")
+    
     for i, batch in enumerate(_chunks(list(event_tickers), EVENT_BATCH), start=1):
+        _log(f"  ▸ batch {i}/{batches}: {len(batch)} events")
+        
         headers = _kalshi_headers("GET", path, key)
-        r = session.get(url, headers=headers, params={"event_tickers": ",".join(batch)}, timeout=60)
-        r.raise_for_status()
+        r = _api_request_with_retry(session, "GET", url, headers, params={"event_tickers": ",".join(batch)})
+        
         events = r.json().get("events", [])
+        
         for e in events:
             evt = (e.get("ticker") or e.get("event_ticker") or "").strip()
             cat = (e.get("category") or "").strip()
             if evt:
                 out[evt] = cat
+        
+        # Rate limiting delay between batches
+        if i < batches:  # Don't sleep after last batch
+            time.sleep(REQUEST_DELAY)
+    
     return out
 
 
@@ -254,19 +307,16 @@ def main():
 
     tz = ZoneInfo(TIMEZONE)
     
-    # Calculate date range: last LOOKBACK_DAYS
-    end_d = date.today() - timedelta(days=1)  # Yesterday
+    end_d = date.today() - timedelta(days=1)
     start_d = end_d - timedelta(days=LOOKBACK_DAYS - 1)
     
-    _log(f"Processing dates: {start_d} to {end_d} (timezone: {TIMEZONE})")
+    _log(f"Processing dates: {start_d} to {end_d} (timezone: {TIMEZONE}, lookback: {LOOKBACK_DAYS} days)")
 
     first_start_ts, _ = _to_utc_bounds_for_local_day(start_d, tz)
     _, last_end_ts = _to_utc_bounds_for_local_day(end_d, tz)
 
-    # Load private key
     key = _load_private_key()
     
-    # Setup HTTP session
     session = requests.Session()
     session.headers.update({"User-Agent": "KalshiDailyCron/1.0"})
     if PROXIES:
@@ -275,10 +325,8 @@ def main():
     if CORP_CA_PATH:
         session.verify = CORP_CA_PATH
 
-    # Fetch trades
     trades = _get_all_trades(first_start_ts, last_end_ts, session, key)
 
-    # Bucket trades by day
     _log("Bucketing trades by local day...")
     totals_by_day = {}
     ticker_by_day = {}
@@ -308,7 +356,6 @@ def main():
             dmap = ticker_by_day.setdefault(day_str, {})
             dmap[tk] = dmap.get(tk, 0) + qty
 
-    # Ensure all days exist
     for d in _daterange_inclusive(start_d, end_d):
         ds = d.isoformat()
         totals_by_day.setdefault(ds, 0)
@@ -316,12 +363,10 @@ def main():
 
     _log(f"Unique tickers: {len(unique_tickers)}")
 
-    # Lookup metadata
     markets_map = _lookup_markets(unique_tickers, session, key)
     blanks_evt = {info["event_ticker"] for info in markets_map.values() if not info["category"] and info["event_ticker"]}
     event_cat_map = _lookup_event_categories(blanks_evt, session, key) if blanks_evt else {}
 
-    # Build final category map
     final_category = {}
     for tk, info in markets_map.items():
         cat = (info.get("category") or "").strip()
@@ -335,7 +380,6 @@ def main():
             else:
                 final_category[tk] = ("", "none", evt)
 
-    # Compute per-day stats
     _log("Computing daily volumes...")
     rows = []
     for d in sorted(totals_by_day.keys()):
@@ -363,13 +407,11 @@ def main():
         rows.append(row)
         _log(f"  {d}: total={total:,} sports={sports_total:,} ({pct:.2f}%)")
 
-    # Upload to Supabase
     _log(f"\nUploading {len(rows)} rows to Supabase...")
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     
     for row in rows:
         try:
-            # Upsert: insert or update if date already exists
             result = supabase.table("daily_volumes").upsert(row).execute()
             _log(f"  ✓ Upserted {row['date']}")
         except Exception as e:
