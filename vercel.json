@@ -10,21 +10,22 @@
       "source": "/api/(.*)",
       "headers": [
         {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, OPTIONS"
+          "value": "GET, OPTIONS, POST"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, Accept, Content-Type, Authorization, apikey"
         }
       ]
     }
   ]
 }
-```
-
-### `requirements.txt` (for Python script):
-```
-requests>=2.31.0
-cryptography>=41.0.0
-supabase>=2.0.0
