@@ -31,21 +31,22 @@ PROXIES = {“http”: proxy_http, “https”: proxy_http}
 
 CORP_CA_PATH = os.getenv(“CA_BUNDLE_PATH”)
 TIMEZONE = os.getenv(“TIMEZONE”, “America/New_York”)
-LOOKBACK_DAYS = int(os.getenv(“LOOKBACK_DAYS”, “90"))
+LOOKBACK_DAYS = int(os.getenv(“LOOKBACK_DAYS”, “3”))
 
-# Reduced batch sizes to prevent rate limiting and URL length issues
+# Conservative batch sizes to prevent rate limiting
 
-TICKER_BATCH = 5   # Small batches to avoid long URLs
-EVENT_BATCH = 5    # Small batches to avoid long URLs
+TICKER_BATCH = 3   # Very small batches to be safe
+EVENT_BATCH = 3    # Very small batches to be safe
 
 # Rate limiting delays (seconds)
 
-REQUEST_DELAY = 1.0  # Wait 1 second between requests
-RETRY_BASE_DELAY = 2.0  # Base delay for exponential backoff
+REQUEST_DELAY = 2.0  # Wait 2 seconds between requests
+RETRY_BASE_DELAY = 5.0  # Base delay for exponential backoff
+MAX_RETRIES = 3  # Reduce retries to fail faster on persistent issues
 
 # Maximum URL length before splitting batch
 
-MAX_URL_LENGTH = 2000
+MAX_URL_LENGTH = 1500  # More conservative limit
 
 # Regex patterns
 
@@ -106,7 +107,7 @@ return {
 “KALSHI-ACCESS-SIGNATURE”: base64.b64encode(sig).decode(“ascii”),
 }
 
-def _api_request_with_retry(session, method, url, headers, params=None, max_retries=5):
+def _api_request_with_retry(session, method, url, headers, params=None, max_retries=MAX_RETRIES):
 “”“Make API request with exponential backoff retry on rate limit.”””
 for attempt in range(max_retries):
 try:
@@ -114,8 +115,8 @@ r = session.request(method, url, headers=headers, params=params, timeout=60)
 
 ```
         if r.status_code == 429:  # Rate limited
-            wait_time = RETRY_BASE_DELAY * (2 ** attempt)  # 2s, 4s, 8s, 16s, 32s
-            _log(f"  ⚠️  Rate limited (429). Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+            wait_time = RETRY_BASE_DELAY * (2 ** attempt)
+            _log(f"  ⚠️  Rate limited (429). Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}...")
             time.sleep(wait_time)
             continue
         
@@ -125,9 +126,10 @@ r = session.request(method, url, headers=headers, params=params, timeout=60)
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 429 and attempt < max_retries - 1:
             wait_time = RETRY_BASE_DELAY * (2 ** attempt)
-            _log(f"  ⚠️  Rate limited (429). Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+            _log(f"  ⚠️  Rate limited (429). Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}...")
             time.sleep(wait_time)
         else:
+            # Re-raise the exception on final attempt or non-429 errors
             raise
 
 raise Exception("Max retries exceeded for API request")
@@ -201,7 +203,7 @@ while True:
         _log(f"  ▸ page {page}: +{len(batch)} trades (total: {len(trades)})")
     
     # Small delay to be nice to the API
-    time.sleep(0.1)
+    time.sleep(0.2)
     
     if not cursor:
         break
@@ -211,69 +213,26 @@ return trades
 ```
 
 def _lookup_markets(tickers, session: requests.Session, key):
+“””
+Fetch market metadata for tickers one at a time to avoid URL length issues
+and rate limiting. This is slower but more reliable.
+“””
 path = “/markets”
 url = f”{API_HOST}{path}”
 out = {}
 
 ```
-# Dynamically adjust batch size based on ticker length
-if tickers:
-    sample_tickers = list(tickers)[:min(100, len(tickers))]
-    avg_ticker_len = sum(len(t) for t in sample_tickers) / len(sample_tickers)
-    
-    # Adjust batch size based on average ticker length
-    if avg_ticker_len > 50:
-        dynamic_batch_size = 3
-    elif avg_ticker_len > 40:
-        dynamic_batch_size = 4
-    else:
-        dynamic_batch_size = TICKER_BATCH
-    
-    _log(f"Average ticker length: {avg_ticker_len:.1f} chars, using batch size: {dynamic_batch_size}")
-else:
-    dynamic_batch_size = TICKER_BATCH
+total_tickers = len(tickers)
+_log(f"Fetching market metadata for {total_tickers} tickers (one at a time)...")
 
-batches = math.ceil(len(tickers) / dynamic_batch_size) if tickers else 0
-_log(f"Fetching market metadata for {len(tickers)} tickers in {batches} batch(es)...")
-
-for i, batch in enumerate(_chunks(list(tickers), dynamic_batch_size), start=1):
-    # Estimate URL length
-    ticker_param = ",".join(batch)
-    estimated_url_len = len(url) + len("?tickers=") + len(ticker_param)
-    
-    # If URL would be too long, split batch further
-    if estimated_url_len > MAX_URL_LENGTH:
-        _log(f"  ⚠️  Batch {i}: URL would be {estimated_url_len} chars, splitting into smaller chunks...")
-        
-        # Split into individual ticker requests if needed
-        for single_ticker in batch:
-            headers = _kalshi_headers("GET", path, key)
-            try:
-                r = _api_request_with_retry(session, "GET", url, headers, params={"tickers": single_ticker})
-                markets = r.json().get("markets", [])
-                
-                for m in markets:
-                    tkr = m.get("ticker")
-                    cat = (m.get("category") or "").strip()
-                    evt = (m.get("event_ticker") or m.get("eventTicker") or "").strip()
-                    if tkr:
-                        out[tkr] = {"category": cat, "event_ticker": evt}
-                
-                time.sleep(0.3)  # Short delay between individual requests
-            except Exception as e:
-                _log(f"  ✗ Error fetching ticker {single_ticker}: {e}")
-        
-        if i < batches:
-            time.sleep(REQUEST_DELAY)
-        continue
-    
-    # Normal batch processing
-    _log(f"  ▸ batch {i}/{batches}: {len(batch)} tickers (URL: {estimated_url_len} chars)")
+for i, ticker in enumerate(list(tickers), start=1):
+    if i % 50 == 0:
+        _log(f"  ▸ Progress: {i}/{total_tickers} tickers processed...")
     
     headers = _kalshi_headers("GET", path, key)
     
     try:
-        r = _api_request_with_retry(session, "GET", url, headers, params={"tickers": ticker_param})
+        r = _api_request_with_retry(session, "GET", url, headers, params={"tickers": ticker})
         markets = r.json().get("markets", [])
         
         for m in markets:
@@ -282,13 +241,15 @@ for i, batch in enumerate(_chunks(list(tickers), dynamic_batch_size), start=1):
             evt = (m.get("event_ticker") or m.get("eventTicker") or "").strip()
             if tkr:
                 out[tkr] = {"category": cat, "event_ticker": evt}
-    except Exception as e:
-        _log(f"  ✗ Error in batch {i}: {e}")
-        # Try individual tickers as fallback
-        for single_ticker in batch:
+    
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 429:
+            _log(f"  ⚠️  Rate limited on ticker {ticker}, waiting longer...")
+            time.sleep(10)  # Wait 10 seconds on rate limit
+            # Try one more time for this ticker
             try:
                 headers = _kalshi_headers("GET", path, key)
-                r = _api_request_with_retry(session, "GET", url, headers, params={"tickers": single_ticker})
+                r = _api_request_with_retry(session, "GET", url, headers, params={"tickers": ticker})
                 markets = r.json().get("markets", [])
                 
                 for m in markets:
@@ -297,19 +258,25 @@ for i, batch in enumerate(_chunks(list(tickers), dynamic_batch_size), start=1):
                     evt = (m.get("event_ticker") or m.get("eventTicker") or "").strip()
                     if tkr:
                         out[tkr] = {"category": cat, "event_ticker": evt}
-                
-                time.sleep(0.3)
-            except Exception as single_e:
-                _log(f"  ✗ Error fetching single ticker {single_ticker}: {single_e}")
+            except Exception as retry_e:
+                _log(f"  ✗ Failed to fetch ticker {ticker} after retry: {retry_e}")
+        else:
+            _log(f"  ✗ Error fetching ticker {ticker}: {e}")
     
-    # Rate limiting delay between batches
-    if i < batches:
-        time.sleep(REQUEST_DELAY)
+    except Exception as e:
+        _log(f"  ✗ Unexpected error fetching ticker {ticker}: {e}")
+    
+    # Rate limiting delay between each request
+    time.sleep(REQUEST_DELAY)
 
+_log(f"Successfully fetched metadata for {len(out)}/{total_tickers} tickers")
 return out
 ```
 
 def _lookup_event_categories(event_tickers, session: requests.Session, key):
+“””
+Fetch event categories one at a time to avoid rate limiting.
+“””
 path = “/events”
 url = f”{API_HOST}{path}”
 out = {}
@@ -317,16 +284,17 @@ if not event_tickers:
 return out
 
 ```
-batches = math.ceil(len(event_tickers) / EVENT_BATCH)
-_log(f"Fetching event categories for {len(event_tickers)} event_ticker(s) in {batches} batch(es)...")
+total_events = len(event_tickers)
+_log(f"Fetching event categories for {total_events} event_ticker(s) (one at a time)...")
 
-for i, batch in enumerate(_chunks(list(event_tickers), EVENT_BATCH), start=1):
-    _log(f"  ▸ batch {i}/{batches}: {len(batch)} events")
+for i, event_ticker in enumerate(list(event_tickers), start=1):
+    if i % 20 == 0:
+        _log(f"  ▸ Progress: {i}/{total_events} events processed...")
     
     headers = _kalshi_headers("GET", path, key)
     
     try:
-        r = _api_request_with_retry(session, "GET", url, headers, params={"event_tickers": ",".join(batch)})
+        r = _api_request_with_retry(session, "GET", url, headers, params={"event_tickers": event_ticker})
         events = r.json().get("events", [])
         
         for e in events:
@@ -334,13 +302,34 @@ for i, batch in enumerate(_chunks(list(event_tickers), EVENT_BATCH), start=1):
             cat = (e.get("category") or "").strip()
             if evt:
                 out[evt] = cat
-    except Exception as e:
-        _log(f"  ✗ Error in event batch {i}: {e}")
     
-    # Rate limiting delay between batches
-    if i < batches:
-        time.sleep(REQUEST_DELAY)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 429:
+            _log(f"  ⚠️  Rate limited on event {event_ticker}, waiting longer...")
+            time.sleep(10)
+            # Try one more time
+            try:
+                headers = _kalshi_headers("GET", path, key)
+                r = _api_request_with_retry(session, "GET", url, headers, params={"event_tickers": event_ticker})
+                events = r.json().get("events", [])
+                
+                for e in events:
+                    evt = (e.get("ticker") or e.get("event_ticker") or "").strip()
+                    cat = (e.get("category") or "").strip()
+                    if evt:
+                        out[evt] = cat
+            except Exception as retry_e:
+                _log(f"  ✗ Failed to fetch event {event_ticker} after retry: {retry_e}")
+        else:
+            _log(f"  ✗ Error fetching event {event_ticker}: {e}")
+    
+    except Exception as e:
+        _log(f"  ✗ Unexpected error fetching event {event_ticker}: {e}")
+    
+    # Rate limiting delay between each request
+    time.sleep(REQUEST_DELAY)
 
+_log(f"Successfully fetched categories for {len(out)}/{total_events} events")
 return out
 ```
 
