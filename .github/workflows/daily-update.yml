@@ -50,24 +50,3 @@ jobs:
         run: |
           echo "❌ Daily update failed!"
           echo "Check the logs above for details"
-```
-
-## 🔐 Step 2: Add GitHub Secrets
-
-1. Go to your GitHub repository
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Add these 4 secrets:
-
-### **Secret 1: KALSHI_API_KEY_ID**
-- Name: `KALSHI_API_KEY_ID`
-- Value: `87dfdd60-dce5-473d-a4d8-285ca56550b8`
-
-### **Secret 2: KALSHI_PRIVATE_KEY**
-- Name: `KALSHI_PRIVATE_KEY`
-- Value: Your **full PEM private key** including the BEGIN/END lines:
-```
------BEGIN PRIVATE KEY-----
-MIIEpAIBAAKCAQEAtmuP1/6tWgzp03P3hUhv3ffrpO4r9vNB63OfONdxxxhyZtiE
-[... all lines of your key ...]
------END PRIVATE KEY-----
