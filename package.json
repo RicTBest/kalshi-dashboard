@@ -4,7 +4,5 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0"
   },
-  "devDependencies": {
-    "next": "^14.0.0"
-  }
 }
+
