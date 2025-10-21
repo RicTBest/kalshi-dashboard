@@ -1,10 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Use Node.js runtime instead of Edge
-export const config = {
-  runtime: 'nodejs',
-};
-
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -12,7 +5,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Accept, Content-Type, Authorization, apikey');
 
-  // Handle OPTIONS for CORS preflight
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -26,29 +18,63 @@ export default async function handler(req, res) {
     });
   }
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase environment variables');
+    return res.status(500).json({ 
+      error: 'Server configuration error' 
+    });
+  }
 
   try {
-    const { data, error } = await supabase
-      .from('daily_volumes')
-      .select('*')
-      .gte('date', start_date)
-      .lte('date', end_date)
-      .order('date', { ascending: true });
-
-    if (error) throw error;
-
-    // Cache for 1 hour
-    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    const url = `${supabaseUrl}/rest/v1/daily_volumes?date=gte.${start_date}&date=lte.${end_date}&order=date.asc`;
     
+    console.log('Fetching from Supabase:', url);
+    
+    const response = await fetch(url, {
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Supabase error:', response.status, errorText);
+      throw new Error(`Supabase API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`Retrieved ${data.length} rows`);
+
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).json(data);
   } catch (error) {
-    console.error('Supabase error:', error);
+    console.error('API error:', error);
     return res.status(500).json({ 
       error: error.message || 'Internal server error' 
     });
   }
 }
+```
+
+## ✅ Check Your Vercel Environment Variables
+
+1. Go to **Vercel Dashboard** → Your Project → **Settings** → **Environment Variables**
+2. Make sure these are set:
+   - `SUPABASE_URL` = `https://xxxxx.supabase.co`
+   - `SUPABASE_ANON_KEY` = `eyJhbGc...` (your anon/public key)
+
+3. **Redeploy** after adding environment variables:
+   - Go to **Deployments** tab
+   - Click the **⋯** menu on latest deployment
+   - Click **Redeploy**
+
+## 🧪 Test the API Directly
+
+Visit this URL in your browser (replace with your actual Vercel URL):
+```
+https://kalshi-sports-dashboard.vercel.app/api/volumes?start_date=2025-08-01&end_date=2025-08-10
