@@ -328,7 +328,7 @@
 
     // Set max date to yesterday
     const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setDate(yesterday.getDate());
     document.getElementById('endDate').max = yesterday.toISOString().split('T')[0];
 
     function showError(message) {
@@ -786,4 +786,5 @@
 
 </body>
 </html>
+
 
