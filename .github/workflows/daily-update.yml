@@ -39,7 +39,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TIMEZONE: 'America/New_York'
-          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '2' }}
         run: |
           echo "Starting daily update..."
           python kalshi_to_supabase.py
