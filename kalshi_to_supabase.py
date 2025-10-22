@@ -34,8 +34,8 @@ TIMEZONE = os.getenv("TIMEZONE", "America/New_York")
 LOOKBACK_DAYS = int(os.getenv("LOOKBACK_DAYS", "3"))
 
 # Reduced batch sizes to prevent rate limiting and URL length issues
-TICKER_BATCH = 5   # Small batches to avoid long URLs
-EVENT_BATCH = 5    # Small batches to avoid long URLs
+TICKER_BATCH = 25  # Small batches to avoid long URLs
+EVENT_BATCH = 25    # Small batches to avoid long URLs
 
 # Rate limiting delays (seconds)
 REQUEST_DELAY = 1.0  # Wait 1 second between requests
@@ -503,3 +503,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
