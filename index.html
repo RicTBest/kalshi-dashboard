@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -228,82 +227,81 @@
             <div class="date-controls">
                 <input type="date" id="startDate" value="2025-08-01" min="2025-08-01">
                 <span>to</span>
-                <input type="date" id="endDate" value="2025-10-20" min="2025-08-01">
+                <input type="date" id="endDate" min="2025-08-01">
                 <button onclick="loadReport()" id="loadBtn">Update</button>
             </div>
         </div>
 
-```
-    <div id="errorMessage" class="error"></div>
-    <div id="loadingMessage" class="loading">Loading data...</div>
+        <div id="errorMessage" class="error"></div>
+        <div id="loadingMessage" class="loading">Loading data...</div>
 
-    <div id="report">
-        <p><strong>Period:</strong> <span id="dateRange"></span></p>
-        
-        <div class="metrics">
-            <div class="metric-card">
-                <div class="metric-value" id="totalVolume">-</div>
-                <div class="metric-label">Total Volume</div>
+        <div id="report">
+            <p><strong>Period:</strong> <span id="dateRange"></span></p>
+            
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value" id="totalVolume">-</div>
+                    <div class="metric-label">Total Volume</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="sportsVolume">-</div>
+                    <div class="metric-label">Sports Volume</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="sportsPercent">-</div>
+                    <div class="metric-label">Sports % of Total</div>
+                </div>
             </div>
-            <div class="metric-card">
-                <div class="metric-value" id="sportsVolume">-</div>
-                <div class="metric-label">Sports Volume</div>
+
+            <h2>Sport Breakdown (% of Sports Volume)</h2>
+            <table id="sportTable">
+                <thead>
+                    <tr>
+                        <th>Sport</th>
+                        <th>Total Volume</th>
+                        <th>% of Sports Volume</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+
+            <div class="chart-container">
+                <div class="chart-title">Sport Distribution</div>
+                <canvas id="pieChart"></canvas>
             </div>
-            <div class="metric-card">
-                <div class="metric-value" id="sportsPercent">-</div>
-                <div class="metric-label">Sports % of Total</div>
+
+            <div class="chart-container">
+                <div class="chart-title">Daily Total Volume Trend</div>
+                <canvas id="dailyChart"></canvas>
             </div>
-        </div>
 
-        <h2>Sport Breakdown (% of Sports Volume)</h2>
-        <table id="sportTable">
-            <thead>
-                <tr>
-                    <th>Sport</th>
-                    <th>Total Volume</th>
-                    <th>% of Sports Volume</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-
-        <div class="chart-container">
-            <div class="chart-title">Sport Distribution</div>
-            <canvas id="pieChart"></canvas>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-title">Daily Total Volume Trend</div>
-            <canvas id="dailyChart"></canvas>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-title">Major Sports Trends Over Time</div>
-            <div class="sport-selector" id="sportSelector"></div>
-            <canvas id="trendsChart"></canvas>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-title">Volume by Sport</div>
-            <div class="time-period-selector">
-                <strong>View by:</strong>
-                <label>
-                    <input type="radio" name="timePeriod" value="day" onchange="updateMonthlyChart()">
-                    <span>Day</span>
-                </label>
-                <label>
-                    <input type="radio" name="timePeriod" value="week" onchange="updateMonthlyChart()">
-                    <span>Week</span>
-                </label>
-                <label>
-                    <input type="radio" name="timePeriod" value="month" checked onchange="updateMonthlyChart()">
-                    <span>Month</span>
-                </label>
+            <div class="chart-container">
+                <div class="chart-title">Major Sports Trends Over Time</div>
+                <div class="sport-selector" id="sportSelector"></div>
+                <canvas id="trendsChart"></canvas>
             </div>
-            <canvas id="monthlyChart"></canvas>
+
+            <div class="chart-container">
+                <div class="chart-title">Volume by Sport</div>
+                <div class="time-period-selector">
+                    <strong>View by:</strong>
+                    <label>
+                        <input type="radio" name="timePeriod" value="day" onchange="updateMonthlyChart()">
+                        <span>Day</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="timePeriod" value="week" onchange="updateMonthlyChart()">
+                        <span>Week</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="timePeriod" value="month" checked onchange="updateMonthlyChart()">
+                        <span>Month</span>
+                    </label>
+                </div>
+                <canvas id="monthlyChart"></canvas>
+            </div>
         </div>
     </div>
-</div>
 
 <script>
     let charts = {};
@@ -326,10 +324,12 @@
         'Combat': '#92400E'
     };
 
-    // Set max date to yesterday
+    // Set max date to yesterday and update the value
     const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate());
-    document.getElementById('endDate').max = yesterday.toISOString().split('T')[0];
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    document.getElementById('endDate').max = yesterdayStr;
+    document.getElementById('endDate').value = yesterdayStr;
 
     function showError(message) {
         const errorDiv = document.getElementById('errorMessage');
@@ -782,9 +782,6 @@
         loadReport();
     });
 </script>
-```
 
 </body>
 </html>
-
-
