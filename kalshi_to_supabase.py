@@ -222,10 +222,10 @@ def _lookup_markets(tickers, session: requests.Session, key):
         avg_ticker_len = sum(len(t) for t in sample_tickers) / len(sample_tickers)
         
         # Adjust batch size based on average ticker length
-        if avg_ticker_len > 50:
-            dynamic_batch_size = 3
-        elif avg_ticker_len > 40:
-            dynamic_batch_size = 4
+        if avg_ticker_len > 100:
+            dynamic_batch_size = 15
+        elif avg_ticker_len > 50:
+            dynamic_batch_size = 20
         else:
             dynamic_batch_size = TICKER_BATCH
         
@@ -503,4 +503,5 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
 
