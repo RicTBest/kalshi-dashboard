@@ -38,8 +38,8 @@ TICKER_BATCH = 35  # Small batches to avoid long URLs
 EVENT_BATCH = 35    # Small batches to avoid long URLs
 
 # Rate limiting delays (seconds)
-REQUEST_DELAY = 0.35  # Wait 1 second between requests
-RETRY_BASE_DELAY = 1.4  # Base delay for exponential backoff
+REQUEST_DELAY = 0.05  # Wait 1 second between requests
+RETRY_BASE_DELAY = 0.4  # Base delay for exponential backoff
 
 # Maximum URL length before splitting batch
 MAX_URL_LENGTH = 2000
@@ -503,6 +503,7 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
 
 
 
