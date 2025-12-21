@@ -46,7 +46,7 @@ MAX_URL_LENGTH = 2000
 
 # Regex patterns
 SPORTS_REGEX = re.compile(
-    r"(nfl|mlb|nba|wnba|nhl|laliga|f1|pga|bundesliga|ucl|epl|mls|ligue1|seriea|fifa|ncaa|nascar|atp|wta|mensingles|womensingles|kxmarmad|kxwmarmad|ncaab|ncaaf)",
+    r"(nfl|mlb|nba|wnba|nhl|laliga|f1|pga|bundesliga|ucl|epl|mls|ligue1|seriea|fifa|ncaa|nascar|atp|wta|mensingles|womensingles|kxmarmad|kxwmarmad|ncaab|ncaaf|boxing|ucf|mma})",
     re.IGNORECASE
 )
 
@@ -62,8 +62,9 @@ TENNIS_REGEX = re.compile(r"(atp|wta|mensingles|womensingles)", re.IGNORECASE)
 NCAAM_REGEX = re.compile(r"(kxmarmad|ncaam|ncaab)", re.IGNORECASE)
 NCAAW_REGEX = re.compile(r"(kxwmarmad|ncaaw)", re.IGNORECASE)
 NCAAF_REGEX = re.compile(r"ncaaf", re.IGNORECASE)
+COMBAT_REGEX = re.compile(r"(mma|boxing|ufc)", re.IGNORECASE)
 
-SPORT_CATEGORIES = ["nfl", "mlb", "nba", "wnba", "nhl", "soccer", "golf", "motorsport", "tennis", "ncaam", "ncaaw", "ncaaf"]
+SPORT_CATEGORIES = ["nfl", "mlb", "nba", "wnba", "nhl", "soccer", "golf", "motorsport", "tennis", "ncaam", "ncaaw", "ncaaf", "combat"]
 
 # =================== END CONFIG ====================
 
@@ -371,6 +372,8 @@ def classify_sport(ticker: str, category: str, event_ticker: str) -> str:
             return "ncaaw"
         if NCAAF_REGEX.search(field):
             return "ncaaf"
+        if COMBAT_REGEX.search(field):
+            return "combat"
     return ""
 
 
@@ -503,6 +506,7 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
 
 
 
